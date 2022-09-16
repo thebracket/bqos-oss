@@ -1,0 +1,15 @@
+[package]
+name = "bqos"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+
+[workspace]
+members = [
+    "config",
+    "uisp_support",
+    "shared_rest",
+    "qos_daemon",
+    "qos_manager",
+]

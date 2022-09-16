@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
+
+    <title>BracketQOS</title>
+    <script src="/bq.js"></script>
+    <script src="/plotly-2.9.0.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <style>
+        .navNode {
+            border: 1px solid black;
+            border-radius: 4px;
+            margin: 4px;
+            padding: 4px;
+            float: left;
+        }
+    </style>
+</head>
+<body>
+
+        <!-- Modal -->
+        <div class="modal fade" id="exampleModal" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-fullscreen">
+              <div class="modal-content">
+                <div class="modal-header">
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="modalBody">
+                </div>
+              </div>
+            </div>
+          </div>
+
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/">BracketQOS</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarSupportedContent">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                    <li class="nav-item">
+                        <a class="nav-link" aria-current="page" href="/">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/system">System</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/reports">Reports</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/tree">Network Tree</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="row" style="margin-bottom: 8px;">
+        <div class="col-sm-12">
+            <input class="form-control me-2" type="search" placeholder="Search for Sites, Access Points and Clients" aria-label="Search" id="SearchBox">
+            <div id="SearchResult" style="font-size: 9pt;"></div>
+        </div>
+    </div>
+
+    <div class="row row justify-content-center" style="margin-bottom: 8px;">
+        <div class="col-sm-12 mx-auto" id="breadcrumbs"></div>
+    </div>
+
+    <div class="row row justify-content-center" style="margin-bottom: 8px;" id="warnSpeed">
+        <div class="col-sm-12 mx-auto" style="background: red; color: white; font-weight: bold; display: none;">⚠ WARNING: Device Interface at 10 Mbit</div>
+    </div>
+
+    <div class="row justify-content-center" style="margin-bottom: 8px; display: none;" id="warnInactive">
+        <div class="col-sm-12 mx-auto" style="background: red; color: white; font-weight: bold;">⚠ WARNING: Device status is not 'active'. Outage?</div>
+    </div>
+
+    <div class="row justify-content-center" style="margin-bottom: 8px; display: none;" id="warnSuspended">
+        <div class="col-sm-12 mx-auto" style="background: orange; color: white; font-weight: bold;">⚠ WARNING: Client site is suspended. Service is not affected - but will be when suspension is activated.</div>
+    </div>
+
+    <div id="devices">
+    </div>
+
+    <div class="row" style="margin-bottom: 8px;">
+        <div class="col-sm-3">
+            <div class="card">
+                <div class="card-body">
+                  <h5 class="card-title">Peak Bandwidth (7 day)</h5>
+                  <div id="peak"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-sm-3">
+            <div class="card">
+                <h5 class="card-title">IP Address List</h5>
+                <div id="ipAddress" style="columns: 3; font-size: 10pt;"></div>
+            </div>
+        </div>
+
+        <div class="col-sm-6">
+            <div class="card">
+                <div class="card-body">
+                  <h5 class="card-title">Bandwidth</h5>
+                  <div id="bandwidth" style="height: 200px"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row" style="margin-bottom: 8px;">
+        <div class="col-sm-6">
+            <div class="card">
+                <div class="card-body">
+                  <h5 class="card-title">Queueing Applied <a href="#" data-bs-toggle="tooltip" title="Queue drops either mean the customer reached their bandwidth allocation (and may want to buy more), or a parent queue is overloaded and the client was slowed down to preserve overall network performance.">❓</a></h5>
+                  <div id="qdrops" style="height: 200px"></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-6">
+            <div class="card">
+                <div class="card-body">
+                  <h5 class="card-title">Latency</h5>
+                  <div id="latency" style="height: 200px"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>Copyright &copy; 2022 Bracket Productions</p>
+    </div>
+
+    <script>
+        function updateBandwidth() {
+            bandwidth.render();
+            drops.render();
+        }
+
+        function updateLatency() {
+            latency.render();
+        }
+
+
+        function doPlots() {
+            updateBandwidth();
+            updateLatency();
+            peakBandwidth(siteId, "peak");
+            /*signalGraphs.forEach((s) => {
+                console.log("Trying to render: ", s);
+                s.render();
+            });*/
+            setTimeout(doPlots, 30000);
+        }
+
+        let maxUpload = 0;
+        let maxDownload = 0;
+        let url = window.location.href;
+        let siteId = url.substring(url.lastIndexOf("/")+1);
+        var latency = new LatencyGraph("latency", siteId, "24h");
+        var bandwidth = new BandwidthGraphWithLimits("bandwidth", siteId, "24h", 0, 0);
+        var drops = new DropsGraph("qdrops", siteId, "24h");
+        let signalGraphs = [];
+
+        setupSearch();
+        setupBreadcrumbs(siteId);
+        $.get("/query/node/" + siteId, (node) => {
+            if (node.level_type == "client") {
+                $("#childBw").hide();
+            }
+            let ip = "";
+            for (let i=0; i<node.ip_addresses.length; i++) {
+                ip += node.ip_addresses[i] + "<br />";
+            }
+            $("#ipAddress").html(ip);
+        });
+
+        $.get("/query/site_device_list/" + siteId, (data) => {
+            console.log(data);
+            let html = "";
+            for (let i=0; i<data.length; i++) {
+                let ap = data[i];
+                html += "<div class='row' style='margin-bottom: 8px;'>";
+                html += "<div class='col-sm-6'><div class='card'><div class='card-body'>";
+                html += "<h5 class='card-title'>" + ap.name + "</h5>";
+                html += "<div style='columns: 3; font-size: 9pt;'>";
+                html += "<strong>Model</strong>: " + ap.model + "<br />";
+                html += "<strong>Firmware</strong>: " + ap.firmware + "<br />";
+                html += "<strong>Status</strong>: " + ap.status + "<br />";
+                if (ap.status != "active") {
+                    $("#warnInactive").show();
+                }
+                html += "<strong>Frequency</strong>: " + ap.frequency + " Mhz<br />";
+                html += "<strong>Availability</strong>: " + (ap.outage_score * 100.0).toFixed(1) + "%<br />";
+                html += "<strong>Stations Count</strong>: " + ap.stations_count + "<br />";
+                html += "<strong>Downlink Capacity</strong>: " + (ap.downlink_capacity / 1000000).toFixed(0) + " Mbit<br />";
+                html += "<strong>Uplink Capacity</strong>: " + (ap.uplink_capacity / 1000000).toFixed(0) + " Mbit<br />";
+                html += "<strong>Channel Width</strong>: " + ap.channel_width + " Mhz<br />";
+                html += "<strong>Transmit Power</strong>: " + ap.transmit_power + " dB<br />";
+                html += "<strong>Mode</strong>: " + ap.mode + "<br />";
+                let ip = ap.ip.substring(0, ap.ip.indexOf("/"));
+                html += "<strong>IP Address</strong>: <a href='https://" + ip + "'>" + ap.ip + "</a><br />";
+                html += "<strong>Noise Floor</strong>: " + ap.noise_floor + " dB<br />";
+                html += "<strong>IF Speed</strong>: ";
+                for (let j=0; j<ap.if_speed.length; j++) {
+                    html += ap.if_speed[j] + " ";
+                    if (ap.if_speed[j] == "10-half" || ap.if_speed[j] == "10-full") {
+                        $("#warnSpeed").show();
+                    }
+                }
+                html += "<br />";
+                html += "</div>";
+                html += "</div></div></div>";
+                html += "<div class='col-sm-6'><div class='card'><div class='card-body'>";
+                html += "<h5 class='card-title'>Signal: " + ap.name + "</h5>";
+                html += "<div id=\"" + ap.id + "\" style='height: 100px;'><div id=\"" + ap.id + "_g" + "\" style='height: 100px;'></div></div>";
+                signalGraphs.push(new SignalGraph(ap.id, ap.id, "24h"));
+                html += "</div></div></div>";
+                html += "</div>";
+            }
+            $("#devices").html(html).promise().done(() => {
+                signalGraphs.forEach((s) => {
+                    console.log(document.getElementById(s.div));
+                    console.log("Trying to render: ", s);
+                    s.render();
+                });
+            });
+            $.get("/query/site_suspended/" + siteId, (suspended) => {
+                if (suspended) {
+                    $("#warnSuspended").show();
+                }
+            })
+        });
+        $(document).ready(doPlots);
+
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p" crossorigin="anonymous"></script>
+</body>
+</html>

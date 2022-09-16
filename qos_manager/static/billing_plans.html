@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
+
+    <title>BracketQOS</title>
+    <script src="/bq.js"></script>
+    <script src="/plotly-2.9.0.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/">BracketQOS</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarSupportedContent">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                    <li class="nav-item">
+                        <a class="nav-link" aria-current="page" href="/">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/system">System</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/reports">Reports</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/tree">Network Tree</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="row" style="margin-bottom: 8px;">
+        <div class="col-sm-12">
+            <input class="form-control me-2" type="search" placeholder="Search for Sites, Access Points and Clients" aria-label="Search" id="SearchBox">
+            <div id="SearchResult" style="font-size: 9pt;"></div>
+        </div>
+    </div>
+
+    <div id="dupes"><em>Processing...</em></div>
+
+    <script>
+
+        function doPlots() {
+            $.get("/reports/billing_plans", (data) => {
+                let currentSite = "";
+                let started = false;
+                let html = "";
+                let siteTotal = 0;
+                let izonesCount = 0;
+                let quantumCount = 0;
+                let tranqCount = 0;
+                let izonesTotal = 0;
+                let quantumTotal = 0;
+                let tranqTotal = 0;
+                for (let i=0; i<data.length; i++) {
+                    if (data[i].site_name != currentSite) {
+                        if (started) {
+                            html += "</tbody></table>";
+                            html += "<p><strong>" + currentSite + " Monthly Value</strong>: $" + siteTotal.toFixed(2) + "</p>";
+                            siteTotal = 0;
+                        }
+                        html += "<h5>" + data[i].site_name + "</h5>";
+                        html += "<table class='table table-striped'><thead><th scope='col'>Site</th><th scope='col'>AP</th><th scope='col'>Client</th><th scope='col'>Reseller</th><th scope='col'>Plan Down</th><th scope='col'>Plan Up</th><th scope='col'>Plan</th><th scope='col'>Status</th><th scope='col'>Price</th><th scope='col'>Balance</th></tr>";
+                        html += "</thead><tbody>";
+                        currentSite = data[i].site_name;
+                        started = true;
+                    }
+                    html += "<tr>";
+                        html += "<td>" + data[i].site_name + "</td>";
+                    html += "<td>" + data[i].parent_name + "</td>";
+                    html += "<td><a href='/client/" + data[i].id + "'>" + data[i].name + "</a></td>";
+                    html += "<td>" + data[i].reseller + "</td>";
+                    html += "<td>" + data[i].down + " Mbit/s</td>";
+                    html += "<td>" + data[i].up + " Mbit/s</td>";
+                    html += "<td>" + data[i].crm_site + "</td>";
+                    let bg = "black";
+                    if (data[i].suspended != "Active") {
+                        bg = "red";
+                    } else {
+                        siteTotal += data[i].price;
+
+                        switch (data[i].reseller) {
+                            case "Quantum": { quantumCount += 1; quantumTotal += data[i].price; } break;
+                            case "iZones": { izonesCount += 1; izonesTotal += data[i].price; } break;
+                            default: { tranqCount += 1; tranqTotal += data[i].price; } break;
+                        }
+                    }
+                    html += "<td style='color: " + bg + "'>" + data[i].suspended + "</td>";
+                    html += "<td>$" + data[i].price.toFixed(2) + "</td>";
+                    html += "<td>$" + data[i].outstanding.toFixed(2) + "</td>";
+                    html += "</tr>";
+                }
+                html += "</tbody></table>";
+
+                let preHtml = "<h4>Summary</h4><table class='table table-striped'><thead><th scope='col'>Reseller</th><th scope='col'>Count</th><th scope='col'>Total</th><th scope='col'>Average Revenue Per User</th></thead>";
+                preHtml += "<tbody>";
+                preHtml += "<tr><td>iZones</td><td>" + izonesCount + "</td><td>$" + izonesTotal.toFixed(2) + "</td><td>$" + (izonesTotal / izonesCount).toFixed(2) + "</td></tr>";
+                preHtml += "<tr><td>Quantum</td><td>" + quantumCount + "</td><td>$" + quantumTotal.toFixed(2) + "</td><td>$" + (quantumTotal / quantumCount).toFixed(2) + "</td></tr>";
+                preHtml += "<tr><td>Tranquility</td><td>" + tranqCount + "</td><td>$" + tranqTotal.toFixed(2) + "</td><td>$" + (tranqTotal / tranqCount).toFixed(2) + "</td></tr>";
+                preHtml += "<tr style='font-weight: bold'>";
+                preHtml += "<td>Total:</td>";
+                preHtml += "<td>" + Number(izonesCount + quantumCount + tranqCount) + "</td>";
+                preHtml += "<td>$" + (izonesTotal + quantumTotal + tranqTotal).toFixed(2) + "</td>";
+                preHtml += "<td>$" + ((izonesTotal + quantumTotal + tranqTotal) / (izonesCount + quantumCount + tranqCount)).toFixed(2) + "</td>";
+                preHtml += "</tr>";
+                preHtml += "</tbody></table>";
+                html = preHtml + html;
+                $("#dupes").html(html);
+            });
+            //setTimeout(doPlots, 10000);
+        }
+
+        setupSearch();
+        $(document).ready(doPlots);
+    </script>
+    <div class="footer">
+        <p>Copyright &copy; 2022 Bracket Productions</p>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p" crossorigin="anonymous"></script>
+</body>
+</html>
