@@ -2,6 +2,8 @@
 
 > This project is based on the excellent [LibreQOS](https://github.com/rchac/LibreQoS) project. It is hoped that this can be useful for the upstream project.
 
+**Please note that the Open Source port isn't quite ready for production yet. I'm still porting it over from our overly coupled to our network version. You should be able to get it to work, but there's quite a bit of work ahead for me --- documentation, cleaning up hard-coded paths and similar.**
+
 ## What is BracketQOS?
 
 `BracketQOS` is a Rust implementation of [LibreQOS](https://github.com/rchac/LibreQoS), with a web front-end. It seeks to provide CAKE-based QoS/QoE for WISPs (Wireless Internet Service Providers), with an interface that helps your support team. We run it in production, and have been very happy with the overall results.
